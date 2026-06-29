@@ -3,7 +3,95 @@ from PIL import Image
 import numpy as np
 import os
 
+class pm4n:
+    
+    '''
+    Initializes a new pm4n object.
+    '''
+    def __init__(self, preview_path=None, gray_count=16):
 
+        # Preview image initialization:
+        if(preview_path == None): # Default preview image generation
+            self.preview = self._img_RGB565(self.new_preview())
+        else: # If a preview image is given
+            try:
+                image = Image.open(preview_path)
+                self.preview = self._preview_RGB565()
+            except: # If a preview image at the specified path cannot be found
+                print(f"Preview Image at \"{preview_path}\" could not be found. Preview will generate with default settings.")
+                self.preview = self._img_RGB565(self.new_preview(image)) # Treat as if `preview_path = None`
+        
+
+        # Generation Parameter Initialization:
+        self.width = 9024               # Screen Width
+        self.height = 5120              # Screen Height
+        self.pixel_size = float(17)     # Pixel size in μm
+        self.gray_count = gray_count    # Number of usable grayscale colors (Min: Unknown; Max: 16)
+
+        
+        return
+    # END __init__()
+
+
+    '''
+    Generates a new preview image.
+
+    TODO:   Since this tool should not use the mask files directly, all references of path './masks' should be replaced with
+    TODO:   object self references to the mask bitstream list.
+
+    '''
+    def new_preview(self):
+        image = Image.new(mode="RGB",size=(224,168),color="black")
+        try:
+            zero_mask = os.listdir('./masks')[0]
+            if(zero_mask.startswith("0.")):
+                mask = Image.open('./masks/'+zero_mask).resize((224,127),Image.Resampling.NEAREST)
+                image.paste(mask,(0,20))
+            else:
+                print("Zero-Mask could not be found. Preview will generate blank.")
+        except:
+            print("Could not find masks folder. Preview will generate blank.")
+        return image
+    # END new_preview()
+    
+
+    '''
+    Localized tool to convert a standard 24-bit RGB image into the RGB565 format.
+    '''
+    def _img_RGB565(self,image):
+        out = []
+        if(image.width != 224 or image.height != 168):
+            raise ValueError("Preview Image should have width 224 and height 168.")
+        for r,g,b in image.get_flattened_data():
+            rgb = struct.pack('H',(((r >> 3) & 0x1F) << 11) | (((g >> 2) & 0x3F) << 5) | ((b >> 3) & 0x1F))
+            out.append(rgb)
+        return out
+    # END _preview_RGB565()
+
+
+    '''
+    Converts a 4-bit greyscale image and converts it to a 16-bit RLE format.
+    '''
+    def img_to_RLE(self,image):
+        pass
+    # END img_to_RLE()
+
+
+    '''
+    Generates the output .pm4n printer file.
+    '''
+    def generate_bitstream(self):
+        pass
+    # END generate_bitstream()
+
+# END pm4n
+
+
+
+
+
+
+# TODO DEPRECATE AND REMOVE THIS
 def calc_dur():
     d = 0
     mask_list = os.listdir('./masks')
@@ -12,38 +100,7 @@ def calc_dur():
     return d
 
 
-def generate_preview():
-    image = Image.new(mode="RGB",size=(224,168),color="black")
-    try:
-        zero_mask = os.listdir('./masks')[0]
-        if(zero_mask.startswith("0.")):
-            mask = Image.open('./masks/'+zero_mask).resize((224,127),Image.Resampling.NEAREST)
-            image.paste(mask,(0,20))
-        else:
-            print("Zero-Mask could not be found. Preview will generate blank.")
-    except:
-        print("Could not find masks folder. Preview will generate blank.")
-    image.save("preview.bmp")
-    return
-
-
-def load_preview(image):
-    # print("Loading preview.bmp...")
-    # image = Image.open('preview.bmp')
-    out = []
-    if(image.width != 224 or image.height != 168):
-        raise ValueError("Preview image 'preview.bmp' should have width 224 and height 168.")
-    for r,g,b in image.get_flattened_data():
-        rgb = struct.pack('H',(((r >> 3) & 0x1F) << 11) | (((g >> 2) & 0x3F) << 5) | ((b >> 3) & 0x1F))
-        out.append(rgb)
-    return out
-
-
-
-
-
-#preview_image = np.array(load_preview(Image.open('preview.bmp')))
-
+# TODO DEPRECATE AND REMOVE THIS
 def BMP_to_RLE(path):
     img = Image.open(path).convert('L')
     px = list(img.get_flattened_data())
@@ -64,17 +121,14 @@ def BMP_to_RLE(path):
     return out
 
 
+# TODO DEPRECATE AND REMOVE THIS
 def generate_pm4n(preview_image):
 
     mask_files = os.listdir('./masks')
 
     # Miscellaneous Constants and Parameters
-    px_size_um = float(17)
-    width = 9024
-    height = 5120
 
     exposure_time_sec = float(10)
-    grey_count = 16
 
     preview_table_size = 12 + (4 * 4) + 2 * preview_image.size
     layer_count = len(mask_files) #                        TODO TODO TODO TODO
@@ -123,7 +177,7 @@ def generate_pm4n(preview_image):
         width.to_bytes(4,byteorder='little'),               # Screen Width
         height.to_bytes(4,byteorder='little'),              # Screen Height
         struct.pack('f',0),                                 # Weight in Grams
-        struct.pack('f',-1),                                # Price
+        struct.pack('f',0),                                 # Price
         ("$\0\0\0").encode(),                               # Currency Symbol
         (1).to_bytes(4,byteorder='little'),                 # Per-Layer Override
         (-1).to_bytes(4,byteorder='little',signed=True),    # Estimated Time in Seconds
@@ -173,10 +227,10 @@ def generate_pm4n(preview_image):
     return
 
 
+# TODO DEPRECATE AND REMOVE THIS
+if __name__ == "__main__":
+    #pm4n.generate_preview()
+    #preview_image = np.array(pm4n.load_preview(Image.open('preview.bmp')))
+    #generate_pm4n(preview_image)
+    pass
 
-def main():
-    generate_preview()
-    preview_image = np.array(load_preview(Image.open('preview.bmp')))
-    generate_pm4n(preview_image)
-
-main()

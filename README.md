@@ -1,6 +1,9 @@
 # Photolithography
 Programs and tools for photolithography
 
+### Read Before Using!
+**Until the program has its first release, it is not functional in any capacity.**
+
 Current TODO List:
 * Finish adapting code from C++ for the .pm4n filetype
 * Create a project manager program
