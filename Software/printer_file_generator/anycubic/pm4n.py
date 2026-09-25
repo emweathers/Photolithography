@@ -4,6 +4,9 @@ import numpy as np
 import os
 
 class pm4n:
+    width = 9024               # Screen Width
+    height = 5120              # Screen Height
+    pixel_size = float(17)     # Pixel size in μm
     
     '''
     Initializes a new pm4n object.
@@ -20,12 +23,10 @@ class pm4n:
             except: # If a preview image at the specified path cannot be found
                 print(f"Preview Image at \"{preview_path}\" could not be found. Preview will generate with default settings.")
                 self.preview = self._img_RGB565(self.new_preview(image)) # Treat as if `preview_path = None`
+                self.preview_len = len(self.preview)
         
 
         # Generation Parameter Initialization:
-        self.width = 9024               # Screen Width
-        self.height = 5120              # Screen Height
-        self.pixel_size = float(17)     # Pixel size in μm
         self.gray_count = gray_count    # Number of usable grayscale colors (Min: Unknown; Max: 16)
 
         
@@ -81,7 +82,109 @@ class pm4n:
     Generates the output .pm4n printer file.
     '''
     def generate_bitstream(self):
-        pass
+        version = int(516)
+        pta = int(0x98)
+        licta = int(pta + self.preview_len)
+        lda = int(licta + 2*4 + self.gray_count + 1*4)
+
+        pre_stream_data = [
+            # Address Header
+            ("ANYCUBIC\0\0\0\0").encode(),              # Brand Text
+            version.to_bytes(4,byteorder='little'),     # Machine File Version
+            int(8).to_bytes(4,byteorder='little'),      # Table Quantity
+            int(0x00).to_bytes(4,byteorder='little'),   # Software Table Address
+            int(0x34).to_bytes(4,byteorder='little'),
+            pta.to_bytes(4,byteorder='little'),         # Preview Table Address  
+
+            licta.to_bytes(4,byteorder='little'),       # Layer Image Color Table Address
+            lda.to_bytes(4,byteorder='little'),         # Layer Definitions Address
+            machine_table_addr = None           # Calculated
+            layer_start_addr = None             # Calculated
+
+
+            # Header Header
+            ("HEADER\0\0\0\0\0\0").encode(),        # Header Text
+            int(84).to_bytes(4,byteorder='little')  # Header Table Size
+            pixel_size = float(self.pixel_size) # Pixel Size
+            layer_thickness = float(1) # Layer Thickness
+            exposure_time = float(10) # Exposure Time
+            off_time = float(-7) # Off Time
+            exposure_time_bottom = float(0) # Exposure Time Bottom
+            bottom_layer_count = float(0) # Bottom Layer Count
+            lift_distance = float(0) # Lift Distance
+            lift_speed = float(100) # Lift Speed
+            retract_speed = float(100) # Retract Speed
+            volume = float(0) # Volume (mL)
+            anti_aliasing_setting = 1 # Anti-Aliasing Setting; 1, 2, 4, 8, or 16
+            resolution_x = self.width # x Resolution (px)
+            resolution_y = self.height # y Resolution (px)
+            weight = float(0) # Weight (g)
+            price = float(-1) # Price
+            currency_symbol = int(ord('$')) # Currency Symbol
+            per_layer_override = int(1) # Per-Layer Override
+            estimated_duration = int(-1) # Estimated Duration
+            transition_layer_count = int(0) # Transition Layer Count
+            transition_layer_type = int(0) # Transition Layer Type
+            advanced_mode = int(True) # Advanced Mode
+
+
+            # Preview Table
+            preview_text = "PREVIEW"
+            preview_table_size = None   # Calculated
+            preview_width = 224         # Calculated?
+            multiply_char = int(ord('x'))
+            preview_height = 168        # Calculated?
+            preview_image = self.preview
+
+
+            # Gray Table
+            use_grayscale = int(False) if self.gray_count < 1 else int(True)
+            gray_max_count = self.gray_count if self.gray_count <= 16 else 16
+            unknown = 0 # This is an unknown variable of unknown purpose. Keep it 0.
+
+
+            # Layer Definition
+            layerdef_text = "LAYERDEF"
+            layerdef_table_size = None # Calculated
+            layer_count = None # Calculated
+            layer_definitions = [] # Provided
+
+
+            # Extra
+            extra_text = "EXTRA"
+            extra_table_size = int(24)
+            bottom_lift_count = int(2)
+            bottom_lift_height1 = float(0)
+            bottom_lift_speed1 = float(1)
+            bottom_retract_speed1 = float(1)
+            bottom_lift_height2 = float(0)
+            bottom_lift_speed2 = float(1)
+            bottom_retract_speed2 = float(1)
+            normal_lift_count = int(2)
+            bottom_lift_height1 = float(1)
+            bottom_lift_speed1 = float(8)
+            bottom_retract_speed1 = float(8)
+            bottom_lift_height2 = float(3)
+            bottom_lift_speed2 = float(24)
+            bottom_retract_speed2 = float(24)
+
+
+            # Machine
+            machine_text = "MACHINE"
+            machine_table_size = None # Calculated?
+            machine_name = "Custom"
+            file_format = "pw0Img"
+            max_anti_aliasing_level = 0x10
+            property_fields = None # Calculated?
+            display_width_mm = float(80)
+            display_height_mm = float(130)
+            machine_height_mm = float(165)
+            max_version = version
+            machine_background = int(0x634701)
+        ]
+
+
+
     # END generate_bitstream()
 
 # END pm4n
@@ -128,7 +231,6 @@ def generate_pm4n(preview_image):
 
     # Miscellaneous Constants and Parameters
 
-    exposure_time_sec = float(10)
 
     preview_table_size = 12 + (4 * 4) + 2 * preview_image.size
     layer_count = len(mask_files) #                        TODO TODO TODO TODO
